@@ -1,0 +1,273 @@
+<!--
+ @component elementUI@2.7.2 Tree 组件二次开发
+ -->
+<template>
+  <div class="row">
+    <div class="col-md-2" style="margin-left: 10px">
+      <div >
+        <el-tabs type="border-card" style="background-color: #243238;margin-top: 10px;border-radius: 5px;height: 1000px">
+          <el-tab-pane>
+            <span slot="label"><i class="el-icon-folder-opened"></i>HTTP</span>
+            <div v-loading="isLoading" class="comp-tree">
+              <el-tree ref="SlotTree"
+                       style="border-radius: 5px;background-color: #243238;color: #76d590;
+                       margin-left: -50px;margin-top: -30px"
+                       :data="setTree"
+                       :props="defaultProps"
+                       :expand-on-click-node="false"
+                       highlight-current
+                       :node-key="NODE_KEY">
+                <span>
+                  <i class="el-icon-folder-opened"></i>
+                </span>
+                <!-- tree -->
+                <div class="comp-tr-node" slot-scope="{ node, data }">
+                  <!-- 编辑状态 -->
+                  <template v-if="data.isEdit">
+                    <el-input v-model="data.name"
+                              autofocus
+                              size="mini"
+                              :ref="'slotTreeInput'+data[NODE_KEY]"
+                              @blur.stop="handleInput(node, data)"
+                              @keyup.enter.native="handleInput(node, data)"></el-input>
+                  </template>
+
+                  <!-- 非编辑状态 -->
+                  <template v-else>
+                    <!-- 名称： 新增节点增加class（is-new） -->
+                    <span :class="[data[NODE_KEY] < NODE_ID_START ? 'is-new' : '', 'comp-tr-node--name']">
+							{{ node.label }}
+						</span>
+
+                    <!-- 按钮 -->
+                    <span class="comp-tr-node--btns">
+							<!-- 新增 -->
+							<el-button icon="el-icon-plus"
+                         size="mini"
+                         circle
+                         type="primary"
+                         @click="handleAdd(node, data)"></el-button>
+
+                      <!-- 编辑 -->
+							<el-button icon="el-icon-edit"
+                         size="mini"
+                         circle
+                         type="info"
+                         @click="handleEdit(node, data)"></el-button>
+
+                      <!-- 删除 -->
+							<el-button icon="el-icon-delete"
+                         size="mini"
+                         circle
+                         type="danger"
+                         @click="handleDelete(node, data)"></el-button>
+						</span>
+                  </template>
+                </div>
+              </el-tree>
+            </div>
+          </el-tab-pane>
+          <el-tab-pane>
+            <span slot="label"><i class="el-icon-date"></i>DUBBO</span>
+          </el-tab-pane>
+        </el-tabs>
+      </div>
+
+    </div>
+    <div class="col-md-9" style="margin-top: 10px;margin-left: 10px;border-radius: 5px"></div>
+  </div>
+
+</template>
+
+<script>
+import api from '@/resource/api'
+
+export default{
+	name: 'slotTree',
+	data(){
+		return {
+			isLoading: false,// 是否加载
+			setTree: [],// tree数据
+			NODE_KEY: 'id',// id对应字段
+			MAX_LEVEL: 5,// 设定最大层级
+			NODE_ID_START: 0,// 新增节点id，逐次递减
+			startId: null,
+			defaultProps: {// 默认设置
+				children: 'children',
+				label: 'name'
+			},
+			initParam: {// 新增参数
+				name: '新增节点',
+				pid: 0,
+				children: [],
+        isEdit: true
+			},
+		}
+	},
+	created(){
+		// 初始值
+		this.startId = this.NODE_ID_START
+    this.$fetch(this.$api.catalogUrl).then(response => {
+      console.log("result-->",response.data);
+      this.setTree = response.data;
+    })
+	},
+	methods: {
+		handleDelete(_node, _data){// 删除节点
+			console.log(_node)
+			// 判断是否存在子节点
+			if(_data.children && _data.children.length !== 0){
+				this.$message.error("此节点有子级，不可删除！")
+				return false;
+			}else{
+				// 删除操作
+				let DeletOprate = () => {
+					this.$nextTick(() => {
+						if(this.$refs.SlotTree){
+						  this.$del(this.$api.catalogUrl+"/"+_node.data.id).then(response => {
+						    if (response.code == 0){
+                  this.$refs.SlotTree.remove(_data)
+                  this.$message.success("删除成功！")
+                }
+              })
+
+						}
+					})
+				}
+
+				// 二次确认
+				let ConfirmFun = () => {
+					this.$confirm("是否删除此节点？","提示",{
+						confirmButtonText: "确认",
+						cancelButtonText: "取消",
+						type: "warning"
+					}).then(() => {
+						DeletOprate()
+					}).catch(() => {})
+				}
+
+				// 判断是否新增： 新增节点直接删除，已存在的节点要二次确认
+				_data[this.NODE_KEY] < this.NODE_ID_START ? DeletOprate() : ConfirmFun()
+			}
+		},
+		handleInput(_node, _data){// 修改节点
+			console.log(_node, _data)
+			// 退出编辑状态
+			if(_data.isEdit){
+				this.$set(_data, 'isEdit', false)
+			}
+		},
+		handleEdit(_node, _data){// 编辑节点
+			console.log(_node, _data)
+			// 设置编辑状态
+			if(!_data.isEdit){
+				this.$set(_data, 'isEdit', true)
+			}
+
+			// 输入框聚焦
+			this.$nextTick(() => {
+				if(this.$refs['slotTreeInput'+_data[this.NODE_KEY]]){
+					this.$refs['slotTreeInput'+_data[this.NODE_KEY]].$refs.input.focus()
+				}
+			})
+		},
+		handleAdd(_node, _data){// 新增节点
+			// 判断层级
+			if(_node.level >= this.MAX_LEVEL){
+				this.$message.warning("当前已达到"+ this.MAX_LEVEL + "级，无法新增！")
+				return false;
+			}
+			// 参数修改
+      console.log(this.initParam);
+      var param = JSON.stringify(this.initParam);
+			let obj = JSON.parse(param);// copy参数
+			obj.pid = _data[this.NODE_KEY];// 父id
+			obj[this.NODE_KEY] = --this.startId;// 节点id：逐次递减id
+      console.log("children--->",_data.children)
+			// 判断字段是否存在
+			if(!_data.children){
+				this.$set(_data, 'children', [])
+			}
+			// 展开节点
+			if(!_node.expanded){
+				_node.expanded = true
+			}
+      _data.children.push(Object.assign((this.initParam)))
+
+    },
+		handleAddTop(){// 添加顶部节点
+			let obj = JSON.parse(JSON.stringify(this.initParam));// copy参数
+			obj[this.NODE_KEY] = --this.startId;// 节点id：逐次递减id
+			this.setTree.push(obj)
+		}
+	}
+}
+</script>
+
+<style lang="scss">
+	/* common */
+
+	// 显示按钮
+	.show-btns{
+		opacity: 1;
+	}
+
+	/* common end */
+
+	.comp-tree{
+		width: 100%;
+		max-width: 700px;
+		max-height: 80vh;
+		padding: 2em;
+    border-radius: 5px;
+		/*overflow: auto;*/
+		// 顶部按钮
+		.comp-tr-top{
+			width: 100px;
+      margin-left: 150px;
+      background-color: #062c33;
+			margin-bottom: 2em;
+		}
+		// 自定义节点
+		.comp-tr-node{
+			// label
+			.comp-tr-node--name{
+				display: inline-block;
+				line-height: 40px;
+				min-height: 40px;
+				// 新增
+				&.is-new{
+					font-weight: bold;
+				}
+			}
+			// button
+			.comp-tr-node--btns{
+				margin-left: 10px;
+				opacity: 0;
+				transition: opacity .1s;
+				.el-button{
+					transform: scale(0.8);// 缩小按钮
+					& + .el-button{
+						margin-left: -1px;
+					}
+				}
+			}
+		}
+		// 高亮显示按钮
+		.is-current{
+			&>.el-tree-node__content{
+				.comp-tr-node--btns{
+					@extend .show-btns;
+				}
+			}
+		}
+		// 悬浮显示按钮
+		.el-tree-node__content{
+			&:hover{
+				.comp-tr-node--btns{
+					@extend .show-btns;
+				}
+			}
+		}
+	}
+</style>
