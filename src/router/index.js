@@ -6,8 +6,8 @@ import WebCase from '../view/fanc/WebCase'
 import AppCase from '../view/fanc/AppCase'
 import Login from '../view/common/Login'
 import Index from '../view/common/Index'
-import AddProject from '../components/AddProject'
-import ProjectShow from '../components/ProjectShow'
+import AddProject from '../components/fanc/AddProject'
+import ProjectShow from '../components/fanc/ProjectShow'
 
 
 Vue.use(Router)

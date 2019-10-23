@@ -8,7 +8,7 @@ import store from './store'
 import router from './router'
 import qs from 'qs'
 import api from './urls'
-import $ from 'jquery'
+import util from './util'
 import {fetch,post,put,patch,del} from './http'
 
 Vue.use(ElementUI)
@@ -21,6 +21,7 @@ Vue.prototype.$del=del;
 Vue.prototype.$patch=patch;
 Vue.prototype.qs=qs;
 Vue.prototype.$api=api
+Vue.prototype.$util=util
 
 /* eslint-disable no-new */
 new Vue({
